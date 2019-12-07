@@ -7,6 +7,78 @@ document.addEventListener('keydown', function (key) {
     }
 });
 
+////////////////////////////////////////
+function ChangeSendIcon(control) {
+    if (control.value !== '') {
+        document.getElementById('send').removeAttribute('style');
+        document.getElementById('audio').setAttribute('style', 'display:none');
+    }
+    else {
+        document.getElementById('audio').removeAttribute('style');
+        document.getElementById('send').setAttribute('style', 'display:none');
+    }
+}
+
+/////////////////////////////////////////////
+// Audio record
+
+let chunks = [];
+let recorder;
+var timeout;
+
+function record(control) {
+    let device = navigator.mediaDevices.getUserMedia({ audio: true });
+    device.then(stream => {
+        if (recorder === undefined) {
+            recorder = new MediaRecorder(stream);
+            recorder.ondataavailable = e => {
+                chunks.push(e.data);
+
+                if (recorder.state === 'inactive') {
+                    let blob = new Blob(chunks, { type: 'audio/webm' });
+                    //document.getElementById('audio').innerHTML = '<source src="' + URL.createObjectURL(blob) + '" type="video/webm" />'; //;
+                    var reader = new FileReader();
+
+                    reader.addEventListener("load", function () {
+                        var chatMessage = {
+                            userId: currentUserKey,
+                            msg: reader.result,
+                            msgType: 'audio',
+                            dateTime: new Date().toLocaleString()
+                        };
+
+                        firebase.database().ref('chatMessages').child(chatKey).push(chatMessage, function (error) {
+                            if (error) alert(error);
+                            else {
+
+                                document.getElementById('txtMessage').value = '';
+                                document.getElementById('txtMessage').focus();
+                            }
+                        });
+                    }, false);
+
+                    reader.readAsDataURL(blob);
+                }
+            }
+
+            recorder.start();
+            control.setAttribute('class', 'fas fa-stop fa-2x');
+        }
+    });
+
+    if (recorder !== undefined) {
+        if (control.getAttribute('class').indexOf('stop') !== -1) {
+            recorder.stop();
+            control.setAttribute('class', 'fas fa-microphone fa-2x');
+        }
+        else {
+            chunks = [];
+            recorder.start();
+            control.setAttribute('class', 'fas fa-stop fa-2x');
+        }
+    }
+}
+
 /////////////////////////////////////////////////////////////////
 // Emoji
 loadAllEmoji();
@@ -86,8 +158,13 @@ function LoadChatMessages(chatKey, friendPhoto) {
             var chat = data.val();
             var dateTime = chat.dateTime.split(",");
             var msg = '';
-            if (chat.msg.indexOf("base64") !== -1) {
+            if (chat.msgType === 'image') {
                 msg = `<img src='${chat.msg}' class="img-fluid" />`;
+            }
+            else if (chat.msgType === 'audio') {
+                msg = `<audio controls>
+                        <source src="${chat.msg}" type="video/webm" />
+                    </audio>`;
             }
             else {
                 msg = chat.msg;
@@ -140,6 +217,7 @@ function SendMessage() {
     var chatMessage = {
         userId: currentUserKey,
         msg: document.getElementById('txtMessage').value,
+        msgType: 'normal',
         dateTime: new Date().toLocaleString()
     };
 
@@ -186,6 +264,7 @@ function SendImage(event) {
             var chatMessage = {
                 userId: currentUserKey,
                 msg: reader.result,
+                msgType: 'image',
                 dateTime: new Date().toLocaleString()
             };
 

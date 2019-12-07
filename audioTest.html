@@ -1,0 +1,74 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Audio Test</title>
+</head>
+<body>
+
+    <audio id="audio" controls>
+        <!--<source src="" type="video/webm" />-->
+    </audio>
+
+    <script>
+        let device = navigator.mediaDevices.getUserMedia({ audio: true });
+        let chunks = [];
+        let recorder;
+        device.then(stream => {
+            recorder = new MediaRecorder(stream);
+
+            recorder.ondataavailable = e => {
+                chunks.push(e.data);
+
+                if (recorder.state == 'inactive') {
+                    let blob = new Blob(chunks, { type: 'audio/webm' });
+                    document.getElementById('audio').innerHTML = '<source src="' + URL.createObjectURL(blob) + '" type="video/webm" />'; //;
+                }
+            }
+
+            recorder.start(1000);
+        });
+
+        setTimeout(() => {
+            recorder.stop()
+        }, 4000);
+
+
+            ///////////////////////////////////////////////////////
+            //function add(a, b) {
+            //    return a + b;
+            //}
+            //function msg(a) {
+            //    console.log(a);
+            //}
+
+            //function display() {
+            //    alert('hello');
+            //}
+
+            //// Arrow Function
+            //let add = (a, b) => a + b;
+
+            //let msg = (a) => console.log(a)
+
+            //let display = () => alert('hello');
+
+            /////////////////////////////////////////
+            // Promise
+            //let p = new Promise((resolve, reject) => {
+            //    let a = 1 + 2
+            //    if (a == 2)
+            //        resolve('sucess')
+            //    else
+            //        reject('fail')
+            //});
+
+            //p.then((msg) => {
+            //    console.log(msg)
+            //}).catch((msg) => {
+            //    console.log(msg)
+            //});
+
+    </script>
+</body>
+</html>
