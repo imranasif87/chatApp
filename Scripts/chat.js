@@ -406,11 +406,18 @@ function onStateChanged(user) {
             }
 
             const messaging = firebase.messaging();
-            messaging.requestPermission().then(function () {
-                return messaging.getToken();
-            }).then(function (token) {
-                firebase.database().ref('fcmTokens').child(currentUserKey).set({ token_id: token });
-            })
+
+            navigator.serviceWorker.register('./firebase-messaging-sw.js')
+                .then((registration) => {
+                    messaging.useServiceWorker(registration);
+
+                    // Request permission and get token.....
+                    messaging.requestPermission().then(function () {
+                        return messaging.getToken();
+                    }).then(function (token) {
+                        firebase.database().ref('fcmTokens').child(currentUserKey).set({ token_id: token });
+                    })
+                });
 
             document.getElementById('lnkNewChat').classList.remove('disabled');
             LoadChatList();
