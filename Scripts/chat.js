@@ -1,113 +1,8 @@
 ﻿var currentUserKey = '';
 var chatKey = '';
-var friend_id = '';
-
-document.addEventListener('keydown', function (key) {
-    if (key.which === 13) {
-        SendMessage();
-    }
-});
-
-////////////////////////////////////////
-function ChangeSendIcon(control) {
-    if (control.value !== '') {
-        document.getElementById('send').removeAttribute('style');
-        document.getElementById('audio').setAttribute('style', 'display:none');
-    }
-    else {
-        document.getElementById('audio').removeAttribute('style');
-        document.getElementById('send').setAttribute('style', 'display:none');
-    }
-}
-
-/////////////////////////////////////////////
-// Audio record
-
-let chunks = [];
-let recorder;
-var timeout;
-
-function record(control) {
-    let device = navigator.mediaDevices.getUserMedia({ audio: true });
-    device.then(stream => {
-        if (recorder === undefined) {
-            recorder = new MediaRecorder(stream);
-            recorder.ondataavailable = e => {
-                chunks.push(e.data);
-
-                if (recorder.state === 'inactive') {
-                    let blob = new Blob(chunks, { type: 'audio/webm' });
-                    //document.getElementById('audio').innerHTML = '<source src="' + URL.createObjectURL(blob) + '" type="video/webm" />'; //;
-                    var reader = new FileReader();
-
-                    reader.addEventListener("load", function () {
-                        var chatMessage = {
-                            userId: currentUserKey,
-                            msg: reader.result,
-                            msgType: 'audio',
-                            dateTime: new Date().toLocaleString()
-                        };
-
-                        firebase.database().ref('chatMessages').child(chatKey).push(chatMessage, function (error) {
-                            if (error) alert(error);
-                            else {
-
-                                document.getElementById('txtMessage').value = '';
-                                document.getElementById('txtMessage').focus();
-                            }
-                        });
-                    }, false);
-
-                    reader.readAsDataURL(blob);
-                }
-            }
-
-            recorder.start();
-            control.setAttribute('class', 'fas fa-stop fa-2x');
-        }
-    });
-
-    if (recorder !== undefined) {
-        if (control.getAttribute('class').indexOf('stop') !== -1) {
-            recorder.stop();
-            control.setAttribute('class', 'fas fa-microphone fa-2x');
-        }
-        else {
-            chunks = [];
-            recorder.start();
-            control.setAttribute('class', 'fas fa-stop fa-2x');
-        }
-    }
-}
-
-/////////////////////////////////////////////////////////////////
-// Emoji
-loadAllEmoji();
-
-function loadAllEmoji() {
-    var emoji = '';
-    for (var i = 128512; i <= 128566; i++) {
-        emoji += `<a href="#" style="font-size: 22px;" onclick="getEmoji(this)">&#${i};</a>`;
-    }
-
-    document.getElementById('smiley').innerHTML = emoji;
-}
-
-function showEmojiPanel() {
-    document.getElementById('emoji').removeAttribute('style');
-}
-
-function hideEmojiPanel() {
-    document.getElementById('emoji').setAttribute('style', 'display:none;');
-}
-
-function getEmoji(control) {
-    document.getElementById('txtMessage').value += control.innerHTML;
-}
 //////////////////////////////////////////////////////////////////////
 function StartChat(friendKey, friendName, friendPhoto) {
     var friendList = { friendId: friendKey, userId: currentUserKey };
-    friend_id = friendKey;
 
     var db = firebase.database().ref('friend_list');
     var flag = false;
@@ -142,6 +37,7 @@ function StartChat(friendKey, friendName, friendPhoto) {
 
         document.getElementById('messages').innerHTML = '';
 
+        OnKeyDown();
         document.getElementById('txtMessage').value = '';
         document.getElementById('txtMessage').focus();
         ////////////////////////////
@@ -159,18 +55,6 @@ function LoadChatMessages(chatKey, friendPhoto) {
         chats.forEach(function (data) {
             var chat = data.val();
             var dateTime = chat.dateTime.split(",");
-            var msg = '';
-            if (chat.msgType === 'image') {
-                msg = `<img src='${chat.msg}' class="img-fluid" />`;
-            }
-            else if (chat.msgType === 'audio') {
-                msg = `<audio controls>
-                        <source src="${chat.msg}" type="video/webm" />
-                    </audio>`;
-            }
-            else {
-                msg = chat.msg;
-            }
             if (chat.userId !== currentUserKey) {
                 messageDisplay += `<div class="row">
                                     <div class="col-2 col-sm-1 col-md-1">
@@ -178,7 +62,7 @@ function LoadChatMessages(chatKey, friendPhoto) {
                                     </div>
                                     <div class="col-6 col-sm-7 col-md-7">
                                         <p class="receive">
-                                            ${msg}
+                                            ${chat.msg}
                                             <span class="time float-right" title="${dateTime[0]}">${dateTime[1]}</span>
                                         </p>
                                     </div>
@@ -188,7 +72,7 @@ function LoadChatMessages(chatKey, friendPhoto) {
                 messageDisplay += `<div class="row justify-content-end">
                             <div class="col-6 col-sm-7 col-md-7">
                                 <p class="sent float-right">
-                                    ${msg}
+                                    ${chat.msg}
                                     <span class="time float-right" title="${dateTime[0]}">${dateTime[1]}</span>
                                 </p>
                             </div>
@@ -214,81 +98,45 @@ function hideChatList() {
     document.getElementById('side-2').classList.remove('d-none');
 }
 
+function OnKeyDown() {
+    document.addEventListener('keydown', function (key) {
+        if (key.which === 13) {
+            SendMessage();
+        }
+    });
+}
 
 function SendMessage() {
     var chatMessage = {
         userId: currentUserKey,
         msg: document.getElementById('txtMessage').value,
-        msgType: 'normal',
         dateTime: new Date().toLocaleString()
     };
 
     firebase.database().ref('chatMessages').child(chatKey).push(chatMessage, function (error) {
         if (error) alert(error);
         else {
-            firebase.database().ref('fcmTokens').child(friend_id).once('value').then(function (data) {
-                $.ajax({
-                    url: 'https://fcm.googleapis.com/fcm/send',
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'key=AIzaSyBXkd3HN8IO3Xa4AFTvqFpo5LXZQ9-Rj7s'
-                    },
-                    data: JSON.stringify({
-                        'to': data.val().token_id, 'data': { 'message': chatMessage.msg.substring(0, 30) + '...', 'icon': firebase.auth().currentUser.photoURL }
-                    }),
-                    success: function (response) {
-                        console.log(response);
-                    },
-                    error: function (xhr, status, error) {
-                        console.log(xhr.error);
-                    }
-                });
-            });
+            //var message = `<div class="row justify-content-end">
+            //                <div class="col-6 col-sm-7 col-md-7">
+            //                    <p class="sent float-right">
+            //                        ${document.getElementById('txtMessage').value}
+            //                        <span class="time float-right">1:28 PM</span>
+            //                    </p>
+            //                </div>
+            //                <div class="col-2 col-sm-1 col-md-1">
+            //                    <img src="${firebase.auth().currentUser.photoURL}" class="chat-pic" />
+            //                </div>
+            //            </div>`;
+
+            //document.getElementById('messages').innerHTML += message;
             document.getElementById('txtMessage').value = '';
             document.getElementById('txtMessage').focus();
+
+            //document.getElementById('messages').scrollTo(0, document.getElementById('messages').scrollHeight);
         }
     });
 }
 
-///////////////////////////////////////////////////////////////
-//Send image
-function ChooseImage() {
-    document.getElementById('imageFile').click();
-}
-
-function SendImage(event) {
-    var file = event.files[0];
-
-    if (!file.type.match("image.*")) {
-        alert("Please select image only.");
-    }
-    else {
-        var reader = new FileReader();
-
-        reader.addEventListener("load", function () {
-            var chatMessage = {
-                userId: currentUserKey,
-                msg: reader.result,
-                msgType: 'image',
-                dateTime: new Date().toLocaleString()
-            };
-
-            firebase.database().ref('chatMessages').child(chatKey).push(chatMessage, function (error) {
-                if (error) alert(error);
-                else {
-
-                    document.getElementById('txtMessage').value = '';
-                    document.getElementById('txtMessage').focus();
-                }
-            });
-        }, false);
-
-        if (file) {
-            reader.readAsDataURL(file);
-        }
-    }
-}
 ///////////////////////////////////////////////////////////////////////
 /////////////
 
@@ -405,21 +253,8 @@ function onStateChanged(user) {
                 document.getElementById('lnkSignOut').style = '';
             }
 
-            const messaging = firebase.messaging();
-
-            navigator.serviceWorker.register('../chatApp/firebase-messaging-sw.js')
-                .then((registration) => {
-                    messaging.useServiceWorker(registration);
-
-                    // Request permission and get token.....
-                    messaging.requestPermission().then(function () {
-                        return messaging.getToken();
-                    }).then(function (token) {
-                        firebase.database().ref('fcmTokens').child(currentUserKey).set({ token_id: token });
-                    })
-                });
-
             document.getElementById('lnkNewChat').classList.remove('disabled');
+
             LoadChatList();
         });
     }
