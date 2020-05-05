@@ -121,3 +121,17 @@ body {
 #myTabContent a {
     text-decoration: none;
 }
+
+#notification {
+    background-color: red;
+    border: 1px solid red;
+    border-radius: 50%;
+    position: absolute;
+    margin-top: -10%;
+    font-size: 12px;
+    width: 30%;
+    text-align: center;
+    color: white;
+    font-weight: bold;
+    margin-left: -12%;
+}
